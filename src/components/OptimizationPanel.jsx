@@ -24,6 +24,10 @@ const OptimizationPanel = ({
   onClearFocus,
   focusTripId,
   dailyBudgetLimit,
+  confirmationProgress = {},
+  riskSummary = {},
+  dayMeta = {},
+  onViewDate,
 }) => {
   const summary = useMemo(() => summarizeSuggestions(suggestions), [suggestions]);
 
@@ -156,6 +160,10 @@ const OptimizationPanel = ({
               onAdopt={onAdopt}
               onClearFocus={onClearFocus}
               focusTripId={focusTripId}
+              confirmationProgress={confirmationProgress[date]}
+              riskSummary={riskSummary[date]}
+              dayMeta={dayMeta[date]}
+              onViewDate={onViewDate}
             />
           ))
         )}

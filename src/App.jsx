@@ -19,8 +19,11 @@ import {
   bulkDeleteTrips,
   exportTrips,
   importTrips,
+  importAllData,
   createEmptyTrip,
   initDB,
+  getAllDayMeta,
+  upsertDayMeta,
   TRIP_STATUS
 } from './db/indexedDB';
 import { 
@@ -29,7 +32,9 @@ import {
   calculateDailyBudget,
   sortTripsByOrder,
   generateOptimizationSuggestions,
-  summarizeSuggestions
+  summarizeSuggestions,
+  calculateDailyConfirmationProgress,
+  calculateDailyRiskSummary
 } from './utils/checks';
 import FilterPanel from './components/FilterPanel';
 import BatchActions from './components/BatchActions';
@@ -41,6 +46,7 @@ import './App.css';
 
 function App() {
   const [trips, setTrips] = useState([]);
+  const [dayMeta, setDayMeta] = useState({});
   const [selectedIds, setSelectedIds] = useState([]);
   const [view, setView] = useState('list');
   const [filters, setFilters] = useState({
@@ -58,12 +64,17 @@ function App() {
   const [dismissedSuggestionIds, setDismissedSuggestionIds] = useState(() => new Set());
   const [adoptedSuggestionCount, setAdoptedSuggestionCount] = useState(0);
   const [focusTripId, setFocusTripId] = useState(null);
+  const [focusDate, setFocusDate] = useState(null);
 
   useEffect(() => {
     const loadData = async () => {
       await initDB();
-      const data = await getAllTrips();
-      setTrips(data);
+      const [tripData, metaData] = await Promise.all([
+        getAllTrips(),
+        getAllDayMeta(),
+      ]);
+      setTrips(tripData);
+      setDayMeta(metaData);
       setIsLoading(false);
     };
     loadData();
@@ -71,6 +82,14 @@ function App() {
 
   const issues = useMemo(() => runAllChecks(trips, dailyBudgetLimit), [trips, dailyBudgetLimit]);
   const budgetByDate = useMemo(() => calculateDailyBudget(trips), [trips]);
+  const confirmationProgress = useMemo(
+    () => calculateDailyConfirmationProgress(trips),
+    [trips]
+  );
+  const dailyRiskSummary = useMemo(
+    () => calculateDailyRiskSummary(trips, dailyBudgetLimit),
+    [trips, dailyBudgetLimit]
+  );
 
   const optimizationSuggestions = useMemo(
     () => generateOptimizationSuggestions(trips, dailyBudgetLimit),
@@ -278,10 +297,15 @@ function App() {
       const reader = new FileReader();
       reader.onload = async (event) => {
         try {
-          const count = await importTrips(event.target.result, clearExisting);
-          const allTrips = await getAllTrips();
+          const result = await importAllData(event.target.result, clearExisting);
+          const [allTrips, allMeta] = await Promise.all([
+            getAllTrips(),
+            getAllDayMeta(),
+          ]);
           setTrips(allTrips);
-          alert(`成功导入 ${count} 条行程`);
+          setDayMeta(allMeta);
+          const metaMsg = result.dayMeta > 0 ? `，含 ${result.dayMeta} 条复盘记录` : '';
+          alert(`成功导入 ${result.trips} 条行程${metaMsg}`);
         } catch (err) {
           alert('导入失败：文件格式不正确');
         }
@@ -313,9 +337,35 @@ function App() {
 
   const handleRefresh = useCallback(async () => {
     setIsLoading(true);
-    const data = await getAllTrips();
-    setTrips(data);
+    const [tripData, metaData] = await Promise.all([
+      getAllTrips(),
+      getAllDayMeta(),
+    ]);
+    setTrips(tripData);
+    setDayMeta(metaData);
     setIsLoading(false);
+  }, []);
+
+  const handleUpdateDayMeta = useCallback(async (date, patch) => {
+    const updated = await upsertDayMeta(date, patch);
+    setDayMeta(prev => ({
+      ...prev,
+      [date]: updated,
+    }));
+  }, []);
+
+  const handleViewDate = useCallback((date) => {
+    setView('list');
+    setFocusTripId(null);
+    setFocusDate(date);
+    setTimeout(() => {
+      const dayGroup = document.querySelector(`[data-date="${date}"]`);
+      if (dayGroup) {
+        dayGroup.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        dayGroup.classList.add('pulse-highlight');
+        setTimeout(() => dayGroup.classList.remove('pulse-highlight'), 2000);
+      }
+    }, 50);
   }, []);
 
   const handleGenerateOptimization = useCallback(() => {
@@ -500,6 +550,11 @@ function App() {
                     dailyBudget={budgetByDate[date]}
                     suggestionCountByTripId={suggestionCountByTripId}
                     onShowOptimization={handleShowOptimization}
+                    confirmationProgress={confirmationProgress[date]}
+                    riskSummary={dailyRiskSummary[date]}
+                    dayMeta={dayMeta[date]}
+                    onUpdateDayMeta={handleUpdateDayMeta}
+                    dailyBudgetLimit={dailyBudgetLimit}
                   />
                 ))
               )}
@@ -517,6 +572,10 @@ function App() {
             optimizationSummary={optimizationSummary}
             onGoToOptimization={handleGoToOptimization}
             onViewTrip={handleViewTrip}
+            confirmationProgress={confirmationProgress}
+            riskSummary={dailyRiskSummary}
+            dayMeta={dayMeta}
+            onViewDate={handleViewDate}
           />
         )}
 
@@ -533,6 +592,10 @@ function App() {
             onClearFocus={handleClearFocus}
             focusTripId={focusTripId}
             dailyBudgetLimit={dailyBudgetLimit}
+            confirmationProgress={confirmationProgress}
+            riskSummary={dailyRiskSummary}
+            dayMeta={dayMeta}
+            onViewDate={handleViewDate}
           />
         )}
       </main>

@@ -495,3 +495,137 @@ export const summarizeSuggestions = (suggestions) => {
   });
   return counts;
 };
+
+export const calculateDailyConfirmationProgress = (trips) => {
+  const groups = groupTripsByDate(trips);
+  const progressByDate = {};
+
+  Object.entries(groups).forEach(([date, dayTrips]) => {
+    const total = dayTrips.length;
+    let confirmed = 0;
+    let pending = 0;
+    let highBudget = 0;
+    let cancelCandidate = 0;
+
+    dayTrips.forEach(trip => {
+      switch (trip.status) {
+        case TRIP_STATUS.CONFIRMED:
+          confirmed++;
+          break;
+        case TRIP_STATUS.PENDING:
+          pending++;
+          break;
+        case TRIP_STATUS.HIGH_BUDGET:
+          highBudget++;
+          pending++;
+          break;
+        case TRIP_STATUS.CANCEL_CANDIDATE:
+          cancelCandidate++;
+          pending++;
+          break;
+        default:
+          pending++;
+      }
+    });
+
+    progressByDate[date] = {
+      total,
+      confirmed,
+      pending,
+      highBudget,
+      cancelCandidate,
+      progressPercent: total > 0 ? Math.round((confirmed / total) * 100) : 0,
+    };
+  });
+
+  return progressByDate;
+};
+
+export const calculateDailyRiskSummary = (trips, dailyLimit = DAILY_BUDGET_LIMIT) => {
+  const groups = groupTripsByDate(trips);
+  const riskByDate = {};
+
+  Object.entries(groups).forEach(([date, dayTrips]) => {
+    const budget = analyzeDayBudget(dayTrips, dailyLimit);
+    const transport = analyzeDayTransport(dayTrips);
+    const transferRisks = findCityTransferRisks(dayTrips);
+
+    const risks = [];
+    if (budget.isOver) {
+      risks.push({
+        type: 'budget_overrun',
+        severity: 'error',
+        label: '预算超限',
+        detail: `超支 ¥${budget.overrun}`,
+      });
+    }
+    if (transport.isOver) {
+      risks.push({
+        type: 'transport_overrun',
+        severity: 'warning',
+        label: '交通超限',
+        detail: `超出 ${transport.overrun}h`,
+      });
+    }
+    if (transferRisks.length > 0) {
+      risks.push({
+        type: 'city_transfer',
+        severity: 'error',
+        label: '跨城风险',
+        detail: `${transferRisks.length} 处衔接偏紧`,
+      });
+    }
+
+    let maxSeverity = null;
+    if (risks.length > 0) {
+      const severityOrder = { info: 0, warning: 1, error: 2 };
+      maxSeverity = risks.reduce((max, r) =>
+        severityOrder[r.severity] > severityOrder[max] ? r.severity : max,
+        'info'
+      );
+    }
+
+    riskByDate[date] = {
+      risks,
+      count: risks.length,
+      maxSeverity,
+      hasBudgetOverrun: budget.isOver,
+      hasTransportOverrun: transport.isOver,
+      hasTransferRisk: transferRisks.length > 0,
+    };
+  });
+
+  return riskByDate;
+};
+
+export const getDaySummary = (date, trips, dailyLimit = DAILY_BUDGET_LIMIT) => {
+  const dayTrips = trips.filter(t => t.date === date);
+  const totalBudget = dayTrips.reduce((sum, t) => sum + (t.estimatedCost || 0), 0);
+  const totalTransport = dayTrips.reduce((sum, t) => sum + (t.transportTime || 0), 0);
+
+  let confirmed = 0;
+  let pending = 0;
+  dayTrips.forEach(trip => {
+    if (trip.status === TRIP_STATUS.CONFIRMED) confirmed++;
+    else pending++;
+  });
+
+  const budget = analyzeDayBudget(dayTrips, dailyLimit);
+  const transport = analyzeDayTransport(dayTrips);
+  const transferRisks = findCityTransferRisks(dayTrips);
+
+  return {
+    date,
+    totalTrips: dayTrips.length,
+    totalBudget,
+    totalTransport,
+    budgetOverBudget: budget.isOver,
+    budgetOverrun: budget.overrun,
+    transportOverLimit: transport.isOver,
+    transportOverrun: transport.overrun,
+    transferRiskCount: transferRisks.length,
+    confirmed,
+    pending,
+    progressPercent: dayTrips.length > 0 ? Math.round((confirmed / dayTrips.length) * 100) : 0,
+  };
+};
