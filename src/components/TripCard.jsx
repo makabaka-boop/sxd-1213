@@ -12,7 +12,8 @@ import {
   Clock,
   DollarSign,
   Flag,
-  AlertCircle
+  AlertCircle,
+  Lightbulb
 } from 'lucide-react';
 import { TRIP_STATUS, PRIORITY } from '../db/indexedDB';
 import { getStatusLabel, getPriorityLabel } from '../utils/checks';
@@ -25,6 +26,8 @@ const TripCard = ({
   onDelete, 
   onDuplicate,
   issues = [],
+  suggestionCount = 0,
+  onShowOptimization,
   disabled = false 
 }) => {
   const [isEditing, setIsEditing] = useState(false);
@@ -229,6 +232,16 @@ const TripCard = ({
           </span>
         </div>
         <div className="trip-actions">
+          {suggestionCount > 0 && (
+            <button
+              className="trip-suggestion-entry"
+              onClick={() => onShowOptimization && onShowOptimization(trip.id)}
+              title="查看优化建议"
+            >
+              <Lightbulb size={14} />
+              <span className="trip-suggestion-count">{suggestionCount}</span>
+            </button>
+          )}
           <button className="btn-icon" onClick={() => onDuplicate(trip)} title="复制">
             <Copy size={14} />
           </button>

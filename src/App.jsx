@@ -6,12 +6,14 @@ import {
   Map, 
   Settings,
   RefreshCw,
-  Plus
+  Plus,
+  Sparkles
 } from 'lucide-react';
 import { 
   getAllTrips, 
   addTrip, 
   updateTrip, 
+  patchTrip,
   deleteTrip, 
   bulkUpdateTrips,
   bulkDeleteTrips,
@@ -25,13 +27,16 @@ import {
   runAllChecks, 
   groupTripsByDate, 
   calculateDailyBudget,
-  sortTripsByOrder 
+  sortTripsByOrder,
+  generateOptimizationSuggestions,
+  summarizeSuggestions
 } from './utils/checks';
 import FilterPanel from './components/FilterPanel';
 import BatchActions from './components/BatchActions';
 import DayTripList from './components/DayTripList';
 import ChecklistView from './components/ChecklistView';
 import AddTripForm from './components/AddTripForm';
+import OptimizationPanel from './components/OptimizationPanel';
 import './App.css';
 
 function App() {
@@ -49,6 +54,10 @@ function App() {
   const [dailyBudgetLimit, setDailyBudgetLimit] = useState(500);
   const [showSettings, setShowSettings] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [optimizationGenerated, setOptimizationGenerated] = useState(false);
+  const [dismissedSuggestionIds, setDismissedSuggestionIds] = useState(() => new Set());
+  const [adoptedSuggestionCount, setAdoptedSuggestionCount] = useState(0);
+  const [focusTripId, setFocusTripId] = useState(null);
 
   useEffect(() => {
     const loadData = async () => {
@@ -62,6 +71,31 @@ function App() {
 
   const issues = useMemo(() => runAllChecks(trips, dailyBudgetLimit), [trips, dailyBudgetLimit]);
   const budgetByDate = useMemo(() => calculateDailyBudget(trips), [trips]);
+
+  const optimizationSuggestions = useMemo(
+    () => generateOptimizationSuggestions(trips, dailyBudgetLimit),
+    [trips, dailyBudgetLimit]
+  );
+
+  const visibleSuggestions = useMemo(
+    () => optimizationSuggestions.filter(s => !dismissedSuggestionIds.has(s.id)),
+    [optimizationSuggestions, dismissedSuggestionIds]
+  );
+
+  const optimizationSummary = useMemo(
+    () => summarizeSuggestions(visibleSuggestions),
+    [visibleSuggestions]
+  );
+
+  const suggestionCountByTripId = useMemo(() => {
+    const counts = {};
+    visibleSuggestions.forEach(s => {
+      (s.tripIds || []).forEach(id => {
+        counts[id] = (counts[id] || 0) + 1;
+      });
+    });
+    return counts;
+  }, [visibleSuggestions]);
 
   const cities = useMemo(() => {
     const citySet = new Set(trips.map(t => t.city).filter(Boolean));
@@ -284,6 +318,50 @@ function App() {
     setIsLoading(false);
   }, []);
 
+  const handleGenerateOptimization = useCallback(() => {
+    setDismissedSuggestionIds(new Set());
+    setAdoptedSuggestionCount(0);
+    setOptimizationGenerated(true);
+  }, []);
+
+  const handleRegenerateOptimization = useCallback(() => {
+    setDismissedSuggestionIds(new Set());
+    setAdoptedSuggestionCount(0);
+    setOptimizationGenerated(true);
+  }, []);
+
+  const handleAdoptSuggestion = useCallback(async (suggestion) => {
+    const { action } = suggestion;
+    if (!action || !action.targetTripId) return;
+
+    const updated = await patchTrip(action.targetTripId, action.patch);
+    if (updated) {
+      setTrips(prev => prev.map(t => (t.id === updated.id ? updated : t)));
+      setAdoptedSuggestionCount(prev => prev + 1);
+    }
+    setDismissedSuggestionIds(prev => {
+      const next = new Set(prev);
+      next.add(suggestion.id);
+      return next;
+    });
+  }, []);
+
+  const handleShowOptimization = useCallback((tripId) => {
+    setFocusTripId(tripId);
+    setOptimizationGenerated(true);
+    setView('optimize');
+  }, []);
+
+  const handleGoToOptimization = useCallback(() => {
+    setOptimizationGenerated(true);
+    setView('optimize');
+  }, []);
+
+  const handleGoToList = useCallback(() => {
+    setView('list');
+    setFocusTripId(null);
+  }, []);
+
   if (isLoading) {
     return (
       <div className="app-loading">
@@ -316,6 +394,16 @@ function App() {
           >
             <ListTodo size={16} />
             出发前清单
+          </button>
+          <button 
+            className={`btn ${view === 'optimize' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => setView('optimize')}
+          >
+            <Sparkles size={16} />
+            优化方案
+            {optimizationSummary.total > 0 && (
+              <span className="view-badge">{optimizationSummary.total}</span>
+            )}
           </button>
           <div className="header-divider" />
           <button className="btn btn-secondary" onClick={handleImport}>
@@ -352,7 +440,7 @@ function App() {
       )}
 
       <main className="app-main">
-        {view === 'list' ? (
+        {view === 'list' && (
           <>
             <div className="top-actions">
               <FilterPanel
@@ -397,18 +485,39 @@ function App() {
                     onAddTrip={handleAddTripToDate}
                     issues={issues}
                     dailyBudget={budgetByDate[date]}
+                    suggestionCountByTripId={suggestionCountByTripId}
+                    onShowOptimization={handleShowOptimization}
                   />
                 ))
               )}
             </div>
           </>
-        ) : (
+        )}
+
+        {view === 'checklist' && (
           <ChecklistView
             trips={trips}
             issues={issues.filter(i => 
               i.severity !== 'info' || i.type === 'pending_confirmation'
             )}
             budgetByDate={budgetByDate}
+            optimizationSummary={optimizationSummary}
+            onGoToOptimization={handleGoToOptimization}
+          />
+        )}
+
+        {view === 'optimize' && (
+          <OptimizationPanel
+            trips={trips}
+            suggestions={visibleSuggestions}
+            generated={optimizationGenerated}
+            adoptedCount={adoptedSuggestionCount}
+            onGenerate={handleGenerateOptimization}
+            onAdopt={handleAdoptSuggestion}
+            onRegenerate={handleRegenerateOptimization}
+            onGoToList={handleGoToList}
+            focusTripId={focusTripId}
+            dailyBudgetLimit={dailyBudgetLimit}
           />
         )}
       </main>

@@ -30,6 +30,8 @@ const DayTripList = ({
   onAddTrip,
   issues,
   dailyBudget,
+  suggestionCountByTripId = {},
+  onShowOptimization,
 }) => {
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -132,6 +134,8 @@ const DayTripList = ({
                 onDelete={onDelete}
                 onDuplicate={onDuplicate}
                 issues={issues}
+                suggestionCount={suggestionCountByTripId[trip.id] || 0}
+                onShowOptimization={onShowOptimization}
               />
             ))}
           </div>

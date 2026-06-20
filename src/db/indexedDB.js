@@ -47,6 +47,34 @@ export const updateTrip = async (trip) => {
   return db.put(STORE_NAME, trip);
 };
 
+export const patchTrip = async (id, patch) => {
+  const db = await initDB();
+  const existing = await db.get(STORE_NAME, id);
+  if (!existing) return null;
+  const updated = { ...existing, ...patch };
+  await db.put(STORE_NAME, updated);
+  return updated;
+};
+
+export const bulkPatchTrips = async (patches) => {
+  const db = await initDB();
+  const tx = db.transaction(STORE_NAME, 'readwrite');
+  const store = tx.store;
+
+  const updatedTrips = await Promise.all(
+    patches.map(async ({ id, patch }) => {
+      const existing = await store.get(id);
+      if (!existing) return null;
+      const updated = { ...existing, ...patch };
+      await store.put(updated);
+      return updated;
+    })
+  );
+
+  await tx.done;
+  return updatedTrips.filter(Boolean);
+};
+
 export const deleteTrip = async (id) => {
   const db = await initDB();
   return db.delete(STORE_NAME, id);

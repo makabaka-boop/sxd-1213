@@ -5,12 +5,20 @@ import {
   DollarSign,
   Calendar,
   MapPin,
-  ChevronRight
+  ChevronRight,
+  Sparkles
 } from 'lucide-react';
 import { getStatusLabel } from '../utils/checks';
 import { TRIP_STATUS } from '../db/indexedDB';
 
-const ChecklistView = ({ trips, issues, budgetByDate, onViewTrip }) => {
+const ChecklistView = ({ 
+  trips, 
+  issues, 
+  budgetByDate, 
+  onViewTrip,
+  optimizationSummary,
+  onGoToOptimization,
+}) => {
   const pendingTrips = trips.filter(t => t.status === TRIP_STATUS.PENDING);
   const highBudgetTrips = trips.filter(t => t.status === TRIP_STATUS.HIGH_BUDGET);
   const errorIssues = issues.filter(i => i.severity === 'error');
@@ -76,6 +84,43 @@ const ChecklistView = ({ trips, issues, budgetByDate, onViewTrip }) => {
             <div className="summary-label">警告提醒</div>
           </div>
         </div>
+      </div>
+
+      <div className="checklist-section optimization-checklist-section">
+        <h4 className="section-title">
+          <Sparkles size={18} />
+          优化方案汇总
+        </h4>
+        <p className="optimization-checklist-desc">
+          基于每日预算、交通时长、优先级、确认状态与跨城衔接风险自动识别的优化建议
+        </p>
+        <div className="optimization-checklist-stats">
+          <div className="opt-stat-chip opt-stat-error">
+            <AlertTriangle size={14} />
+            <span className="opt-stat-num">{optimizationSummary?.error || 0}</span>
+            <span className="opt-stat-text">严重</span>
+          </div>
+          <div className="opt-stat-chip opt-stat-warning">
+            <AlertCircle size={14} />
+            <span className="opt-stat-num">{optimizationSummary?.warning || 0}</span>
+            <span className="opt-stat-text">可调整</span>
+          </div>
+          <div className="opt-stat-chip opt-stat-info">
+            <Info size={14} />
+            <span className="opt-stat-num">{optimizationSummary?.info || 0}</span>
+            <span className="opt-stat-text">提示</span>
+          </div>
+          <div className="opt-stat-chip opt-stat-total">
+            <Sparkles size={14} />
+            <span className="opt-stat-num">{optimizationSummary?.total || 0}</span>
+            <span className="opt-stat-text">合计</span>
+          </div>
+        </div>
+        <button className="btn btn-primary btn-sm" onClick={onGoToOptimization}>
+          <Sparkles size={14} />
+          查看 / 生成优化方案
+          <ChevronRight size={14} />
+        </button>
       </div>
 
       {issues.length > 0 && (
