@@ -237,10 +237,14 @@ function App() {
       const file = e.target.files?.[0];
       if (!file) return;
       
+      const clearExisting = confirm(
+        '导入将清空当前所有行程并替换为文件内容。\n是否继续？\n\n（点击"取消"则将导入行程追加到现有数据）'
+      );
+      
       const reader = new FileReader();
       reader.onload = async (event) => {
         try {
-          const count = await importTrips(event.target.result);
+          const count = await importTrips(event.target.result, clearExisting);
           const allTrips = await getAllTrips();
           setTrips(allTrips);
           alert(`成功导入 ${count} 条行程`);

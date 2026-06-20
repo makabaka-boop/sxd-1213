@@ -79,11 +79,15 @@ export const exportTrips = async () => {
   return JSON.stringify(trips, null, 2);
 };
 
-export const importTrips = async (jsonData) => {
+export const importTrips = async (jsonData, clearExisting = true) => {
   const trips = JSON.parse(jsonData);
   const db = await initDB();
   const tx = db.transaction(STORE_NAME, 'readwrite');
   const store = tx.store;
+  
+  if (clearExisting) {
+    await store.clear();
+  }
   
   const promises = trips.map(trip => {
     const { id, ...rest } = trip;

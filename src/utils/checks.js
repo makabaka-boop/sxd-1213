@@ -61,21 +61,21 @@ export const checkDailyBudget = (trips, dailyLimit = DAILY_BUDGET_LIMIT) => {
 
 export const checkDuplicateLocations = (trips) => {
   const issues = [];
-  const locationMap = {};
+  const locationMap = new Map();
   
   trips.forEach(trip => {
-    const key = `${trip.date}-${trip.locationName}`;
     if (trip.locationName) {
-      if (!locationMap[key]) {
-        locationMap[key] = [];
+      const dateKey = trip.date || '';
+      const mapKey = `${dateKey}||${trip.locationName}`;
+      if (!locationMap.has(mapKey)) {
+        locationMap.set(mapKey, { date: dateKey, locationName: trip.locationName, ids: [] });
       }
-      locationMap[key].push(trip.id);
+      locationMap.get(mapKey).ids.push(trip.id);
     }
   });
   
-  Object.entries(locationMap).forEach(([key, ids]) => {
+  locationMap.forEach(({ date, locationName, ids }) => {
     if (ids.length > 1) {
-      const [date, locationName] = key.split('-');
       issues.push({
         type: 'duplicate_location',
         severity: 'warning',
@@ -93,12 +93,17 @@ export const checkMissingAlternativeNote = (trips) => {
   const issues = [];
   
   trips.forEach(trip => {
-    if (trip.status === TRIP_STATUS.CANCEL_CANDIDATE && !trip.alternativeNote?.trim()) {
+    const needAlternativeNote = 
+      trip.status === TRIP_STATUS.CANCEL_CANDIDATE ||
+      trip.status === TRIP_STATUS.HIGH_BUDGET ||
+      trip.status === TRIP_STATUS.PENDING;
+    
+    if (needAlternativeNote && !trip.alternativeNote?.trim()) {
       issues.push({
         type: 'missing_alternative',
         severity: 'info',
         date: trip.date,
-        message: `「${trip.locationName}」为取消候选，但缺少备选说明`,
+        message: `「${trip.locationName}」缺少备选说明（${getStatusLabel(trip.status)}状态建议填写备选方案）`,
         tripIds: [trip.id],
       });
     }

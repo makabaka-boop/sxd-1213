@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { 
@@ -29,6 +29,14 @@ const TripCard = ({
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState(trip);
+
+  useEffect(() => {
+    if (!isEditing) {
+      setEditData(trip);
+    } else {
+      setEditData(prev => ({ ...trip, ...prev }));
+    }
+  }, [trip]);
 
   const {
     attributes,
