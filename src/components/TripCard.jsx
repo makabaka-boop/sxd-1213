@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { 
@@ -29,14 +29,33 @@ const TripCard = ({
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState(trip);
+  const dirtyFieldsRef = useRef(new Set());
 
   useEffect(() => {
     if (!isEditing) {
       setEditData(trip);
+      dirtyFieldsRef.current.clear();
     } else {
-      setEditData(prev => ({ ...trip, ...prev }));
+      setEditData(prev => {
+        const next = { ...trip };
+        dirtyFieldsRef.current.forEach((field) => {
+          next[field] = prev[field];
+        });
+        return next;
+      });
     }
-  }, [trip]);
+  }, [trip, isEditing]);
+
+  const updateField = (field, value) => {
+    dirtyFieldsRef.current.add(field);
+    setEditData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleStartEdit = () => {
+    dirtyFieldsRef.current.clear();
+    setEditData(trip);
+    setIsEditing(true);
+  };
 
   const {
     attributes,
@@ -55,10 +74,12 @@ const TripCard = ({
 
   const handleSave = () => {
     onUpdate(editData);
+    dirtyFieldsRef.current.clear();
     setIsEditing(false);
   };
 
   const handleCancel = () => {
+    dirtyFieldsRef.current.clear();
     setEditData(trip);
     setIsEditing(false);
   };
@@ -102,7 +123,7 @@ const TripCard = ({
             <input
               type="date"
               value={editData.date || ''}
-              onChange={(e) => setEditData({ ...editData, date: e.target.value })}
+              onChange={(e) => updateField('date', e.target.value)}
             />
           </div>
           <div className="form-group">
@@ -110,7 +131,7 @@ const TripCard = ({
             <input
               type="text"
               value={editData.city || ''}
-              onChange={(e) => setEditData({ ...editData, city: e.target.value })}
+              onChange={(e) => updateField('city', e.target.value)}
               placeholder="如：北京"
             />
           </div>
@@ -119,7 +140,7 @@ const TripCard = ({
             <input
               type="text"
               value={editData.locationName || ''}
-              onChange={(e) => setEditData({ ...editData, locationName: e.target.value })}
+              onChange={(e) => updateField('locationName', e.target.value)}
               placeholder="如：故宫"
             />
           </div>
@@ -128,7 +149,7 @@ const TripCard = ({
             <input
               type="number"
               value={editData.estimatedCost || 0}
-              onChange={(e) => setEditData({ ...editData, estimatedCost: Number(e.target.value) })}
+              onChange={(e) => updateField('estimatedCost', Number(e.target.value))}
             />
           </div>
           <div className="form-group">
@@ -137,14 +158,14 @@ const TripCard = ({
               type="number"
               step="0.5"
               value={editData.transportTime || 0}
-              onChange={(e) => setEditData({ ...editData, transportTime: Number(e.target.value) })}
+              onChange={(e) => updateField('transportTime', Number(e.target.value))}
             />
           </div>
           <div className="form-group">
             <label>优先级</label>
             <select
               value={editData.priority}
-              onChange={(e) => setEditData({ ...editData, priority: e.target.value })}
+              onChange={(e) => updateField('priority', e.target.value)}
             >
               <option value={PRIORITY.HIGH}>高</option>
               <option value={PRIORITY.MEDIUM}>中</option>
@@ -155,7 +176,7 @@ const TripCard = ({
             <label>确认状态</label>
             <select
               value={editData.status}
-              onChange={(e) => setEditData({ ...editData, status: e.target.value })}
+              onChange={(e) => updateField('status', e.target.value)}
             >
               <option value={TRIP_STATUS.PENDING}>待确认</option>
               <option value={TRIP_STATUS.CONFIRMED}>已确认</option>
@@ -168,7 +189,7 @@ const TripCard = ({
             <input
               type="text"
               value={editData.alternativeNote || ''}
-              onChange={(e) => setEditData({ ...editData, alternativeNote: e.target.value })}
+              onChange={(e) => updateField('alternativeNote', e.target.value)}
               placeholder="取消候选时的备选方案"
             />
           </div>
@@ -176,7 +197,7 @@ const TripCard = ({
             <label>备注</label>
             <textarea
               value={editData.remark || ''}
-              onChange={(e) => setEditData({ ...editData, remark: e.target.value })}
+              onChange={(e) => updateField('remark', e.target.value)}
               placeholder="其他备注信息"
               rows={2}
             />
@@ -211,7 +232,7 @@ const TripCard = ({
           <button className="btn-icon" onClick={() => onDuplicate(trip)} title="复制">
             <Copy size={14} />
           </button>
-          <button className="btn-icon" onClick={() => setIsEditing(true)} title="编辑">
+          <button className="btn-icon" onClick={handleStartEdit} title="编辑">
             <Edit2 size={14} />
           </button>
           <button className="btn-icon btn-danger" onClick={() => onDelete(trip.id)} title="删除">

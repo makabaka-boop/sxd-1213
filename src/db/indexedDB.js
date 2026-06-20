@@ -79,24 +79,53 @@ export const exportTrips = async () => {
   return JSON.stringify(trips, null, 2);
 };
 
+const buildTripSignature = (trip) => {
+  const { id, ...rest } = trip;
+  return JSON.stringify(
+    Object.keys(rest)
+      .sort()
+      .reduce((result, key) => {
+        result[key] = rest[key];
+        return result;
+      }, {})
+  );
+};
+
 export const importTrips = async (jsonData, clearExisting = true) => {
   const trips = JSON.parse(jsonData);
+  if (!Array.isArray(trips)) {
+    throw new Error('Invalid trips payload');
+  }
+
   const db = await initDB();
   const tx = db.transaction(STORE_NAME, 'readwrite');
   const store = tx.store;
-  
+
   if (clearExisting) {
     await store.clear();
   }
-  
-  const promises = trips.map(trip => {
+
+  const existingSignatures = clearExisting
+    ? new Set()
+    : new Set((await store.getAll()).map(buildTripSignature));
+
+  const uniqueTrips = trips.filter((trip) => {
+    const signature = buildTripSignature(trip);
+    if (existingSignatures.has(signature)) {
+      return false;
+    }
+    existingSignatures.add(signature);
+    return true;
+  });
+
+  const promises = uniqueTrips.map(trip => {
     const { id, ...rest } = trip;
     return store.add(rest);
   });
-  
+
   await Promise.all(promises);
   await tx.done;
-  return trips.length;
+  return uniqueTrips.length;
 };
 
 export const TRIP_STATUS = {
