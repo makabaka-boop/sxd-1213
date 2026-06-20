@@ -339,20 +339,33 @@ function App() {
       setTrips(prev => prev.map(t => (t.id === updated.id ? updated : t)));
       setAdoptedSuggestionCount(prev => prev + 1);
     }
-    setDismissedSuggestionIds(prev => {
-      const next = new Set(prev);
-      next.add(suggestion.id);
-      return next;
-    });
   }, []);
 
   const handleShowOptimization = useCallback((tripId) => {
-    setFocusTripId(tripId);
+    setFocusTripId(prev => prev === tripId ? null : tripId);
     setOptimizationGenerated(true);
     setView('optimize');
   }, []);
 
+  const handleClearFocus = useCallback(() => {
+    setFocusTripId(null);
+  }, []);
+
+  const handleViewTrip = useCallback((tripId) => {
+    setFocusTripId(tripId);
+    setView('list');
+    setTimeout(() => {
+      const tripCard = document.querySelector(`[data-trip-id="${tripId}"]`);
+      if (tripCard) {
+        tripCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        tripCard.classList.add('pulse-highlight');
+        setTimeout(() => tripCard.classList.remove('pulse-highlight'), 2000);
+      }
+    }, 50);
+  }, []);
+
   const handleGoToOptimization = useCallback(() => {
+    setFocusTripId(null);
     setOptimizationGenerated(true);
     setView('optimize');
   }, []);
@@ -383,21 +396,21 @@ function App() {
         <div className="header-right">
           <button 
             className={`btn ${view === 'list' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => setView('list')}
+            onClick={() => { setFocusTripId(null); setView('list'); }}
           >
             <ListTodo size={16} />
             行程列表
           </button>
           <button 
             className={`btn ${view === 'checklist' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => setView('checklist')}
+            onClick={() => { setFocusTripId(null); setView('checklist'); }}
           >
             <ListTodo size={16} />
             出发前清单
           </button>
           <button 
             className={`btn ${view === 'optimize' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => setView('optimize')}
+            onClick={() => { setFocusTripId(null); setView('optimize'); }}
           >
             <Sparkles size={16} />
             优化方案
@@ -503,6 +516,7 @@ function App() {
             budgetByDate={budgetByDate}
             optimizationSummary={optimizationSummary}
             onGoToOptimization={handleGoToOptimization}
+            onViewTrip={handleViewTrip}
           />
         )}
 
@@ -516,6 +530,7 @@ function App() {
             onAdopt={handleAdoptSuggestion}
             onRegenerate={handleRegenerateOptimization}
             onGoToList={handleGoToList}
+            onClearFocus={handleClearFocus}
             focusTripId={focusTripId}
             dailyBudgetLimit={dailyBudgetLimit}
           />

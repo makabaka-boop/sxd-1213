@@ -1591,3 +1591,18 @@ body {
     order: -1;
   }
 }
+
+@keyframes pulseHighlight {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(251, 191, 36, 0);
+  }
+}
+
+.pulse-highlight {
+  animation: pulseHighlight 1s ease-in-out 2;
+  border-color: #fbbf24 !important;
+  background-color: #fef3c7 !important;
+}

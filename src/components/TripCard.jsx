@@ -106,7 +106,7 @@ const TripCard = ({
 
   if (isEditing) {
     return (
-      <div ref={setNodeRef} style={style} className="trip-card editing">
+      <div ref={setNodeRef} style={style} className="trip-card editing" data-trip-id={trip.id}>
         <div className="trip-card-header">
           <div className="drag-handle" {...attributes} {...listeners}>
             <GripVertical size={16} />
@@ -215,6 +215,7 @@ const TripCard = ({
       ref={setNodeRef} 
       style={style} 
       className={`trip-card ${isSelected ? 'selected' : ''} ${disabled ? 'disabled' : ''}`}
+      data-trip-id={trip.id}
     >
       <div className="trip-card-header">
         <div className="trip-card-left">

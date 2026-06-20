@@ -13,7 +13,7 @@ const severityIcon = (severity) => {
   }
 };
 
-const DaySuggestionList = ({ date, suggestions, trips, onAdopt, focusTripId }) => {
+const DaySuggestionList = ({ date, suggestions, trips, onAdopt, onClearFocus, focusTripId }) => {
   const tripMap = useMemo(() => {
     const map = {};
     trips.forEach(t => { map[t.id] = t; });
@@ -27,7 +27,7 @@ const DaySuggestionList = ({ date, suggestions, trips, onAdopt, focusTripId }) =
 
   return (
     <div className={`day-suggestion-group ${isFocused ? 'focused' : ''}`}>
-      <div className="day-suggestion-header">
+      <div className="day-suggestion-header" onClick={onClearFocus}>
         <div className="day-suggestion-title">
           <Calendar size={18} />
           <span className="day-suggestion-date">{date}</span>
@@ -41,13 +41,22 @@ const DaySuggestionList = ({ date, suggestions, trips, onAdopt, focusTripId }) =
           const relatedTrips = (suggestion.tripIds || [])
             .map(id => tripMap[id])
             .filter(Boolean);
+          const isHighlighted = focusTripId && suggestion.tripIds?.includes(focusTripId);
+
+          const handleCardClick = (e) => {
+            if (e.target.closest('button')) return;
+            if (isHighlighted) {
+              onClearFocus && onClearFocus();
+            }
+          };
 
           return (
             <div
               key={suggestion.id}
               className={`suggestion-card suggestion-${suggestion.severity} ${
-                focusTripId && suggestion.tripIds?.includes(focusTripId) ? 'highlight' : ''
+                isHighlighted ? 'highlight' : ''
               }`}
+              onClick={handleCardClick}
             >
               <div className="suggestion-card-top">
                 <div className={`suggestion-icon suggestion-icon-${suggestion.severity}`}>

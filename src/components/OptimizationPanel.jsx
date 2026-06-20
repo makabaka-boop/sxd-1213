@@ -21,6 +21,7 @@ const OptimizationPanel = ({
   onAdopt,
   onRegenerate,
   onGoToList,
+  onClearFocus,
   focusTripId,
   dailyBudgetLimit,
 }) => {
@@ -39,7 +40,7 @@ const OptimizationPanel = ({
 
   if (!generated) {
     return (
-      <div className="optimization-panel">
+      <div className="optimization-panel" onClick={(e) => e.target === e.currentTarget && onClearFocus && onClearFocus()}>
         <div className="optimization-hero">
           <div className="optimization-hero-icon">
             <Wand2 size={40} />
@@ -76,7 +77,7 @@ const OptimizationPanel = ({
   }
 
   return (
-    <div className="optimization-panel">
+    <div className="optimization-panel" onClick={(e) => e.target === e.currentTarget && onClearFocus && onClearFocus()}>
       <div className="optimization-header">
         <div className="optimization-header-left">
           <h3>
@@ -153,6 +154,7 @@ const OptimizationPanel = ({
               suggestions={daySuggestions}
               trips={trips}
               onAdopt={onAdopt}
+              onClearFocus={onClearFocus}
               focusTripId={focusTripId}
             />
           ))
